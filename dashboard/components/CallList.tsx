@@ -65,14 +65,17 @@ export function CallList() {
 
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_BUN_SERVER?.replace('http:', 'ws:') || 'ws://localhost:3902';
+    // Use the Next.js API route for WebSocket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/api/ws`
+
     console.log('Setting up WebSocket connection to:', wsUrl, {
-      wsUrl,
-      envVar: process.env.NEXT_PUBLIC_BUN_SERVER
+      protocol,
+      host: window.location.host
     });
 
     try {
-      const ws = new WebSocket(`${wsUrl}/ws`);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
