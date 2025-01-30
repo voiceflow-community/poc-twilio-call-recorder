@@ -91,28 +91,60 @@ async function pollTranscriptStatus(
   maxAttempts = 10
 ): Promise<{ media: TwilioMedia; sentences: TranscriptSentence[] }> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const response = await fetch(`https://intelligence.twilio.com/v2/Transcripts/${transcriptSid}`, {
-      headers: {
-        'Authorization': `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`
-      }
-    });
-
-    const transcript = await response.json();
-    console.log('🎯 Transcript status:', {
-      transcriptSid: transcript.sid.slice(-8),
-      status: transcript.status
-    });
-
-    if (transcript.status === 'completed') {
-      // Get PII media URL
-      const mediaResponse = await fetch(transcript.links.media, {
+    try {
+      const response = await fetch(`https://intelligence.twilio.com/v2/Transcripts/${transcriptSid}`, {
         headers: {
           'Authorization': `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`
         }
       });
 
-      const media = await mediaResponse.json();
-      if (media.media_url) {
+      if (!response.ok) {
+        console.error('Transcript API error:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Transcript API returned ${response.status}`);
+      }
+
+      const transcript = await response.json();
+      console.log('Raw transcript response:', transcript);
+
+      if (!transcript || !transcript.sid) {
+        console.error('Invalid transcript response:', transcript);
+        throw new Error('Invalid transcript response format');
+      }
+
+      console.log('🎯 Transcript status:', {
+        transcriptSid: transcript.sid.slice(-8),
+        status: transcript.status
+      });
+
+      if (transcript.status === 'completed') {
+        // Get PII media URL
+        const mediaResponse = await fetch(transcript.links.media, {
+          headers: {
+            'Authorization': `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`
+          }
+        });
+
+        if (!mediaResponse.ok) {
+          console.error('Media API error:', {
+            status: mediaResponse.status,
+            statusText: mediaResponse.statusText
+          });
+          const errorText = await mediaResponse.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Media API returned ${mediaResponse.status}`);
+        }
+
+        const media = await mediaResponse.json();
+        if (!media || !media.media_url) {
+          console.error('Invalid media response:', media);
+          throw new Error('Invalid media response format');
+        }
+
         console.log('🔒 PII media available:', {
           transcriptSid: transcript.sid.slice(-8),
           mediaUrl: media.media_url
@@ -125,15 +157,35 @@ async function pollTranscriptStatus(
           }
         });
 
+        if (!sentencesResponse.ok) {
+          console.error('Sentences API error:', {
+            status: sentencesResponse.status,
+            statusText: sentencesResponse.statusText
+          });
+          const errorText = await sentencesResponse.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Sentences API returned ${sentencesResponse.status}`);
+        }
+
         const { sentences } = await sentencesResponse.json();
-        console.log('📝 Conversation:');
+        if (!sentences) {
+          console.error('Invalid sentences response');
+          throw new Error('Invalid sentences response format');
+        }
+
+        console.log('📝 Conversation:', sentences);
 
         return { media, sentences };
       }
-    }
 
-    // Wait 2 seconds before next attempt
-    await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait 2 seconds before next attempt
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.error('Error in pollTranscriptStatus:', error);
+      if (attempt === maxAttempts - 1) {
+        throw error;
+      }
+    }
   }
   throw new Error('Transcript processing timed out');
 }
@@ -217,8 +269,14 @@ const server = serve({
 
       try {
         const formData = await req.formData();
-        console.log('📝 Recording status data:', Object.fromEntries(formData.entries()));
+        const formDataObj = Object.fromEntries(formData.entries());
+        console.log('📝 Recording status data:', formDataObj);
         const recordingSid = formData.get('RecordingSid');
+
+        if (!recordingSid) {
+          console.error('Missing RecordingSid in webhook data');
+          return new Response('Missing RecordingSid', { status: 400 });
+        }
 
         console.log('💾 Recording completed:', {
           callSid: formData.get('CallSid')?.slice(-8),
@@ -248,7 +306,22 @@ const server = serve({
             }).toString()
           });
 
+          if (!transcriptResponse.ok) {
+            console.error('Failed to create transcript:', {
+              status: transcriptResponse.status,
+              statusText: transcriptResponse.statusText
+            });
+            const errorText = await transcriptResponse.text();
+            console.error('Error response:', errorText);
+            throw new Error(`Failed to create transcript: ${transcriptResponse.status}`);
+          }
+
           const transcript = await transcriptResponse.json();
+          if (!transcript || !transcript.sid) {
+            console.error('Invalid transcript creation response:', transcript);
+            throw new Error('Invalid transcript creation response');
+          }
+
           console.log('🎯 Transcript created:', {
             transcriptSid: transcript.sid.slice(-8),
             status: transcript.status
@@ -260,6 +333,10 @@ const server = serve({
           // Now we can use media and sentences
           const callSid = formData.get('CallSid') as string;
           const storedDetails = callDetails.get(callSid);
+
+          if (!storedDetails) {
+            console.error('No stored details found for call:', callSid);
+          }
 
           const newCall: CallRecord = {
             id: transcript.sid,
@@ -300,15 +377,22 @@ const server = serve({
             });
           } catch (error) {
             console.error('Error saving call:', error);
+            throw error;
           }
         } catch (error) {
           console.error('Error processing Voice Intelligence:', error);
+          throw error;
         }
 
         return new Response('OK');
       } catch (error) {
         console.error('Error in recording status:', error);
-        return new Response('Error', { status: 500 });
+        return new Response(error instanceof Error ? error.message : 'Internal Server Error', {
+          status: 500,
+          headers: {
+            'Content-Type': 'text/plain'
+          }
+        });
       }
     }
 

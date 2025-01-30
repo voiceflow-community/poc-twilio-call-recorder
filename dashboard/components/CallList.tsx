@@ -41,6 +41,7 @@ export function CallList() {
     limit: 10
   });
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 
   const fetchCalls = useCallback(async (page: number, search: string) => {
     try {
@@ -62,8 +63,8 @@ export function CallList() {
     }
   }, [pagination.limit]);
 
-  // Set up WebSocket connection
-  useEffect(() => {
+  // Set up WebSocket connection with reconnection logic
+  const setupWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER || 'http://localhost:3902';
     const wsHost = bunServer.replace(/^https?:\/\//, '');
@@ -75,17 +76,33 @@ export function CallList() {
 
     ws.onopen = () => {
       console.log('WebSocket connected successfully');
+      // Clear any existing reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'new_call') {
-        setCalls(prev => [data.call, ...prev]);
-        setPagination(prev => ({
-          ...prev,
-          total: prev.total + 1,
-          pages: Math.ceil((prev.total + 1) / prev.limit)
-        }));
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_call') {
+          console.log('Received new call:', data.call);
+          // Add the new call to the beginning of the list and update pagination
+          setCalls(prev => {
+            // Only add if not already in the list
+            if (!prev.find(call => call.id === data.call.id)) {
+              return [data.call, ...prev];
+            }
+            return prev;
+          });
+          setPagination(prev => ({
+            ...prev,
+            total: prev.total + 1,
+            pages: Math.ceil((prev.total + 1) / prev.limit)
+          }));
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
       }
     };
 
@@ -95,16 +112,32 @@ export function CallList() {
     };
 
     ws.onclose = () => {
-      console.log('WebSocket connection closed');
+      console.log('WebSocket connection closed, attempting to reconnect...');
+      // Attempt to reconnect after 5 seconds
+      reconnectTimeoutRef.current = setTimeout(() => {
+        setupWebSocket();
+      }, 5000);
     };
 
     return () => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
-  }, []); // Only run once on mount
+  }, []); // Empty dependency array since we don't use any external values
 
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const cleanup = setupWebSocket();
+    return () => {
+      cleanup();
+    };
+  }, [setupWebSocket]);
+
+  // Fetch calls when page or search changes
   useEffect(() => {
     fetchCalls(pagination.currentPage, search);
   }, [pagination.currentPage, search, fetchCalls]);
@@ -131,6 +164,11 @@ export function CallList() {
 
       // Remove the deleted call from the state
       setCalls(prev => prev.filter(call => call.id !== id));
+      setPagination(prev => ({
+        ...prev,
+        total: prev.total - 1,
+        pages: Math.ceil((prev.total - 1) / prev.limit)
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete call');
       // Clear error after 5 seconds
