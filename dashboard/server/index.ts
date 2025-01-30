@@ -492,7 +492,9 @@ const server = serve({
       console.log('Total connected clients:', wsClients.size);
     },
     message(ws: ServerWebSocket<unknown>, message: string) {
+      // Log the message and send an acknowledgment
       console.log('Received WebSocket message:', message);
+      ws.send(JSON.stringify({ type: 'ack', message: 'Message received' }));
     },
     close(ws: ServerWebSocket<unknown>) {
       console.log('WebSocket client disconnected');

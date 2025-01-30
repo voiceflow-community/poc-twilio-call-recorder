@@ -66,16 +66,8 @@ export function CallList() {
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER;
-    console.log('BUN_SERVER env:', bunServer);
-
-    if (!bunServer) {
-      console.error('NEXT_PUBLIC_BUN_SERVER environment variable is not set');
-      return () => {};
-    }
-
-    const wsHost = bunServer.replace(/^https?:\/\//, '');
-    const wsUrl = `${protocol}//${wsHost}/ws`;
+    // Use the API proxy endpoint
+    const wsUrl = `${protocol}//${window.location.host}/api/ws`;
     console.log('Attempting WebSocket connection to:', wsUrl);
 
     const ws = new WebSocket(wsUrl);
