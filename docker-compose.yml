@@ -6,7 +6,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile
     ports:
-      - "${DASHBOARD_PORT:-3000}:3000"
+      - "${DASHBOARD_PORT:-3901}:3901"
     env_file:
       - ./dashboard/.env.local
     networks:
@@ -17,7 +17,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile.bun
     ports:
-      - "${BUN_PORT:-3002}:3002"
+      - "${BUN_PORT:-3902}:3902"
     env_file:
       - ./dashboard/.env.local
     networks:

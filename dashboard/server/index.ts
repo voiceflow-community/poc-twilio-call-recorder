@@ -145,7 +145,7 @@ const wsClients = new Set<WebSocketClient>();
 const callDetails = new Map<string, { from: string; to: string }>();
 
 const server = serve({
-  port: 3002,
+  port: Bun.env.BUN_PORT,
   async fetch(req: Request) {
     const url = new URL(req.url);
 
