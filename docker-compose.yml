@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  bun-server:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile.bun
+    ports:
+      - "3002:3002"
+    networks:
+      - app-network
+    volumes:
+      - db-data:/app/data
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

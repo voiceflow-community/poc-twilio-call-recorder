@@ -1,0 +1,15 @@
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
+
+COPY package*.json ./
+RUN bun install
+
+COPY . .
+
+EXPOSE 3002
+
+CMD ["bun", "run", "server/index.ts"]
