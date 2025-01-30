@@ -66,16 +66,23 @@ export function CallList() {
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER || 'http://localhost:3902';
+    const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER;
+    console.log('BUN_SERVER env:', bunServer);
+
+    if (!bunServer) {
+      console.error('NEXT_PUBLIC_BUN_SERVER environment variable is not set');
+      return () => {};
+    }
+
     const wsHost = bunServer.replace(/^https?:\/\//, '');
+    const wsUrl = `${protocol}//${wsHost}/ws`;
+    console.log('Attempting WebSocket connection to:', wsUrl);
 
-    console.log('Connecting to WebSocket:', `${protocol}//${wsHost}/ws`);
-
-    const ws = new WebSocket(`${protocol}//${wsHost}/ws`);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected successfully');
+      console.log('WebSocket connected successfully to:', wsUrl);
       // Clear any existing reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -120,19 +127,26 @@ export function CallList() {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      console.error('WebSocket readyState:', ws.readyState);
       setError('Failed to connect to WebSocket server');
     };
 
-    ws.onclose = () => {
-      console.log('WebSocket connection closed, attempting to reconnect...');
+    ws.onclose = (event) => {
+      console.log('WebSocket connection closed:', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean
+      });
       // Attempt to reconnect after 5 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
+        console.log('Attempting to reconnect WebSocket...');
         reconnectTimeoutRef.current = undefined;
         setupWebSocket();
       }, 5000);
     };
 
     return () => {
+      console.log('Cleaning up WebSocket connection');
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
