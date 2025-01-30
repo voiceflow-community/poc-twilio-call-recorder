@@ -85,22 +85,33 @@ export function CallList() {
 
     ws.onmessage = (event) => {
       try {
+        console.log('Received WebSocket message:', event.data);
         const data = JSON.parse(event.data);
         if (data.type === 'new_call') {
-          console.log('Received new call:', data.call);
+          console.log('Processing new call:', data.call);
           // Add the new call to the beginning of the list and update pagination
           setCalls(prev => {
+            console.log('Current calls:', prev.length);
             // Only add if not already in the list
             if (!prev.find(call => call.id === data.call.id)) {
-              return [data.call, ...prev];
+              console.log('Adding new call to list');
+              const newCalls = [data.call, ...prev];
+              console.log('New calls length:', newCalls.length);
+              return newCalls;
             }
+            console.log('Call already in list, skipping');
             return prev;
           });
-          setPagination(prev => ({
-            ...prev,
-            total: prev.total + 1,
-            pages: Math.ceil((prev.total + 1) / prev.limit)
-          }));
+          setPagination(prev => {
+            console.log('Updating pagination. Current:', prev);
+            const newPagination = {
+              ...prev,
+              total: prev.total + 1,
+              pages: Math.ceil((prev.total + 1) / prev.limit)
+            };
+            console.log('New pagination:', newPagination);
+            return newPagination;
+          });
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);

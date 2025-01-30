@@ -369,11 +369,21 @@ const server = serve({
             }, transcript.sid);
 
             // Broadcast to all connected WebSocket clients after successful save
+            console.log('Broadcasting new call to WebSocket clients. Connected clients:', wsClients.size);
             wsClients.forEach(client => {
-              client.socket.send(JSON.stringify({
-                type: 'new_call',
-                call: newCall
-              }));
+              try {
+                const message = JSON.stringify({
+                  type: 'new_call',
+                  call: newCall
+                });
+                console.log('Sending WebSocket message:', message);
+                client.socket.send(message);
+                console.log('WebSocket message sent successfully');
+              } catch (error) {
+                console.error('Error sending WebSocket message:', error);
+                // Remove failed client
+                wsClients.delete(client);
+              }
             });
           } catch (error) {
             console.error('Error saving call:', error);
@@ -477,17 +487,21 @@ const server = serve({
   },
   websocket: {
     open(ws: ServerWebSocket<unknown>) {
+      console.log('New WebSocket client connected');
       wsClients.add({ socket: ws, timestamp: Date.now() });
+      console.log('Total connected clients:', wsClients.size);
     },
     message(ws: ServerWebSocket<unknown>, message: string) {
-      // Handle incoming messages if needed
+      console.log('Received WebSocket message:', message);
     },
     close(ws: ServerWebSocket<unknown>) {
+      console.log('WebSocket client disconnected');
       wsClients.forEach(client => {
         if (client.socket === ws) {
           wsClients.delete(client);
         }
       });
+      console.log('Total connected clients:', wsClients.size);
     },
   },
 });
