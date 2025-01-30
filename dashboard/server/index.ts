@@ -152,6 +152,18 @@ const server = serve({
   async fetch(req: Request) {
     const url = new URL(req.url);
 
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*'
+        }
+      });
+    }
+
     if (url.pathname.startsWith("/v1/twilio/webhooks/")) {
       try {
         const params = url.searchParams;
@@ -301,7 +313,14 @@ const server = serve({
     }
 
     if (url.pathname === "/health") {
-      return new Response('Server is running', { status: 200 });
+      return new Response('Server is running', {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*'
+        }
+      });
     }
 
     if (url.pathname === "/calls") {
