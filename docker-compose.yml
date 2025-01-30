@@ -6,7 +6,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${DASHBOARD_PORT:-3000}:3000"
     networks:
       - app-network
 
@@ -15,7 +15,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile.bun
     ports:
-      - "3002:3002"
+      - "${BUN_PORT:-3002}:3002"
     networks:
       - app-network
     volumes:
