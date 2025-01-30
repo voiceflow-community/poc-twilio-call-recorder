@@ -65,12 +65,12 @@ export function CallList() {
   // Set up WebSocket connection
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER || 'http://localhost:3002';
-    const host = bunServer.replace('http://', '');
+    const bunServer = process.env.NEXT_PUBLIC_BUN_SERVER || 'http://localhost:3902';
+    const wsHost = bunServer.replace(/^https?:\/\//, '');
 
-    console.log('Connecting to WebSocket:', `${protocol}//${host}/ws`);
+    console.log('Connecting to WebSocket:', `${protocol}//${wsHost}/ws`);
 
-    const ws = new WebSocket(`${protocol}//${host}/ws`);
+    const ws = new WebSocket(`${protocol}//${wsHost}/ws`);
     wsRef.current = ws;
 
     ws.onopen = () => {
