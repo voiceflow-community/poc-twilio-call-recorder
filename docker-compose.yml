@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   dashboard:
     build:
@@ -17,7 +15,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile.bun
     ports:
-      - "${BUN_PORT:-3902}:3002"
+      - "${BUN_PORT:-3902}:3902"
     env_file:
       - ./dashboard/.env.local
     networks:

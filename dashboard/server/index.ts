@@ -144,8 +144,10 @@ const wsClients = new Set<WebSocketClient>();
 // Add this to store call details
 const callDetails = new Map<string, { from: string; to: string }>();
 
+const PORT = parseInt(Bun.env.BUN_PORT || "3902");
+
 const server = serve({
-  port: Bun.env.BUN_PORT || 3902,
+  port: PORT,
   hostname: "0.0.0.0",
   async fetch(req: Request) {
     const url = new URL(req.url);
@@ -387,4 +389,4 @@ const server = serve({
   },
 });
 
-console.log(`Listening on http://localhost:${server.port}`);
+console.log(`Listening on http://0.0.0.0:${PORT}`);
