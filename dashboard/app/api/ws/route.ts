@@ -17,13 +17,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const wsKey = req.headers.get('sec-websocket-key');
+    const wsVersion = req.headers.get('sec-websocket-version');
+
+    if (!wsKey || !wsVersion) {
+      console.log('WebSocket proxy: Missing required headers');
+      return new Response('Missing required WebSocket headers', { status: 400 });
+    }
+
     const response = await fetch(bunServerUrl.toString(), {
       method: 'GET',
       headers: {
         'Upgrade': 'websocket',
         'Connection': 'Upgrade',
-        'Sec-WebSocket-Key': req.headers.get('sec-websocket-key') || '',
-        'Sec-WebSocket-Version': req.headers.get('sec-websocket-version') || ''
+        'Sec-WebSocket-Key': wsKey,
+        'Sec-WebSocket-Version': wsVersion,
+        'Sec-WebSocket-Protocol': req.headers.get('sec-websocket-protocol') || ''
       }
     });
 
@@ -35,12 +44,19 @@ export async function GET(req: NextRequest) {
       return new Response('Failed to upgrade to WebSocket', { status: 500 });
     }
 
+    const wsAccept = response.headers.get('sec-websocket-accept');
+    if (!wsAccept) {
+      console.log('WebSocket proxy: Missing Sec-WebSocket-Accept header');
+      return new Response('Invalid WebSocket response', { status: 502 });
+    }
+
     return new Response(null, {
       status: 101,
       headers: {
         'Upgrade': 'websocket',
         'Connection': 'Upgrade',
-        'Sec-WebSocket-Accept': response.headers.get('sec-websocket-accept') || ''
+        'Sec-WebSocket-Accept': wsAccept,
+        'Sec-WebSocket-Protocol': response.headers.get('sec-websocket-protocol') || ''
       }
     });
   } catch (error) {

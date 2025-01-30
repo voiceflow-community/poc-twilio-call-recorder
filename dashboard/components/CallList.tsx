@@ -66,89 +66,104 @@ export function CallList() {
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Use relative URL instead of hardcoded host
     const wsUrl = `${protocol}//${window.location.host}/api/ws`;
-    console.log('Setting up WebSocket connection to:', wsUrl);
-    console.log('Current protocol:', protocol);
-    console.log('Current host:', window.location.host);
+    console.log('Setting up WebSocket connection to:', wsUrl, {
+      protocol: window.location.protocol,
+      host: window.location.host,
+      wsProtocol: protocol
+    });
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      console.log('WebSocket connection established');
-      setError(null);
-      // Clear any existing reconnection timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = undefined;
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        console.log('Received WebSocket message:', event.data);
-        const data = JSON.parse(event.data);
-        if (data.type === 'new_call') {
-          console.log('Processing new call:', data.call);
-          // Add the new call to the beginning of the list and update pagination
-          setCalls(prev => {
-            console.log('Current calls:', prev.length);
-            // Only add if not already in the list
-            if (!prev.find(call => call.id === data.call.id)) {
-              console.log('Adding new call to list');
-              return [data.call, ...prev];
-            }
-            console.log('Call already in list, skipping');
-            return prev;
-          });
-          setPagination(prev => ({
-            ...prev,
-            total: prev.total + 1,
-            pages: Math.ceil((prev.total + 1) / prev.limit)
-          }));
+      ws.onopen = () => {
+        console.log('WebSocket connection established successfully');
+        setError(null);
+        // Clear any existing reconnection timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = undefined;
         }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    };
+      };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      console.error('WebSocket state:', {
-        readyState: ws.readyState,
-        url: ws.url,
-        protocol: ws.protocol,
-        extensions: ws.extensions,
-        bufferedAmount: ws.bufferedAmount
-      });
-      setError('Failed to connect to WebSocket server');
-    };
+      ws.onmessage = (event) => {
+        try {
+          console.log('Received WebSocket message:', event.data);
+          const data = JSON.parse(event.data);
+          if (data.type === 'new_call') {
+            console.log('Processing new call:', data.call);
+            // Add the new call to the beginning of the list and update pagination
+            setCalls(prev => {
+              console.log('Current calls:', prev.length);
+              // Only add if not already in the list
+              if (!prev.find(call => call.id === data.call.id)) {
+                console.log('Adding new call to list');
+                return [data.call, ...prev];
+              }
+              console.log('Call already in list, skipping');
+              return prev;
+            });
+            setPagination(prev => ({
+              ...prev,
+              total: prev.total + 1,
+              pages: Math.ceil((prev.total + 1) / prev.limit)
+            }));
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      };
 
-    ws.onclose = (event) => {
-      console.log('WebSocket connection closed:', {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-        readyState: ws.readyState
-      });
-      // Attempt to reconnect after 5 seconds
-      reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('Attempting to reconnect WebSocket...');
-        reconnectTimeoutRef.current = undefined;
-        setupWebSocket();
-      }, 5000);
-    };
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        console.error('WebSocket state:', {
+          readyState: ws.readyState,
+          url: ws.url,
+          protocol: ws.protocol,
+          extensions: ws.extensions,
+          bufferedAmount: ws.bufferedAmount,
+          binaryType: ws.binaryType
+        });
+        setError('Failed to connect to WebSocket server');
+      };
 
-    return () => {
-      console.log('Cleaning up WebSocket connection');
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = undefined;
-      }
-    };
+      ws.onclose = (event) => {
+        console.log('WebSocket connection closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          readyState: ws.readyState
+        });
+
+        // Don't attempt to reconnect if the component is unmounting
+        if (!wsRef.current) return;
+
+        // Attempt to reconnect after 5 seconds
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('Attempting to reconnect WebSocket...');
+          reconnectTimeoutRef.current = undefined;
+          setupWebSocket();
+        }, 5000);
+      };
+
+      return () => {
+        console.log('Cleaning up WebSocket connection');
+        wsRef.current = null; // Mark as intentionally closed
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = undefined;
+        }
+      };
+    } catch (error) {
+      console.error('Error setting up WebSocket:', error);
+      setError('Failed to setup WebSocket connection');
+      return () => {}; // Return empty cleanup function
+    }
   }, []); // Empty dependency array since we don't use any external values
 
   // Initialize WebSocket connection
