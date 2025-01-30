@@ -480,14 +480,56 @@ const server = serve({
         headers: Object.fromEntries(req.headers.entries())
       });
 
-      const success = server.upgrade(req);
+      // Add CORS headers for WebSocket upgrade
+      if (req.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Private-Network': 'true'
+          }
+        });
+      }
+
+      // Check for WebSocket upgrade header
+      const upgradeHeader = req.headers.get('upgrade')?.toLowerCase();
+      if (!upgradeHeader || upgradeHeader !== 'websocket') {
+        return new Response('Expected Upgrade: WebSocket', {
+          status: 426,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Private-Network': 'true'
+          }
+        });
+      }
+
+      const success = server.upgrade(req, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Allow-Private-Network': 'true'
+        }
+      });
       console.log('WebSocket upgrade result:', success);
 
       if (success) {
         // Upgraded successfully
         return undefined;
       }
-      return new Response("WebSocket upgrade failed", { status: 400 });
+      return new Response("WebSocket upgrade failed", {
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Allow-Private-Network': 'true'
+        }
+      });
     }
 
     return new Response("Not Found", { status: 404 });
