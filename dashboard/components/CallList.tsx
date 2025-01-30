@@ -65,17 +65,14 @@ export function CallList() {
 
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use relative URL instead of hardcoded host
-    const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+    const wsUrl = process.env.NEXT_PUBLIC_BUN_SERVER?.replace('http:', 'ws:') || 'ws://localhost:3902';
     console.log('Setting up WebSocket connection to:', wsUrl, {
-      protocol: window.location.protocol,
-      host: window.location.host,
-      wsProtocol: protocol
+      wsUrl,
+      envVar: process.env.NEXT_PUBLIC_BUN_SERVER
     });
 
     try {
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(`${wsUrl}/ws`);
       wsRef.current = ws;
 
       ws.onopen = () => {

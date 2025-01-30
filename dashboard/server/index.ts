@@ -475,7 +475,14 @@ const server = serve({
 
     // Add new WebSocket endpoint
     if (url.pathname === "/ws") {
+      console.log('Received WebSocket upgrade request:', {
+        url: req.url,
+        headers: Object.fromEntries(req.headers.entries())
+      });
+
       const success = server.upgrade(req);
+      console.log('WebSocket upgrade result:', success);
+
       if (success) {
         // Upgraded successfully
         return undefined;
@@ -487,17 +494,28 @@ const server = serve({
   },
   websocket: {
     open(ws: ServerWebSocket<unknown>) {
-      console.log('New WebSocket client connected');
+      console.log('New WebSocket client connected', {
+        remoteAddress: ws.remoteAddress,
+        readyState: ws.readyState,
+        data: ws.data
+      });
       wsClients.add({ socket: ws, timestamp: Date.now() });
       console.log('Total connected clients:', wsClients.size);
     },
     message(ws: ServerWebSocket<unknown>, message: string) {
       // Log the message and send an acknowledgment
-      console.log('Received WebSocket message:', message);
+      console.log('Received WebSocket message:', {
+        message,
+        remoteAddress: ws.remoteAddress,
+        readyState: ws.readyState
+      });
       ws.send(JSON.stringify({ type: 'ack', message: 'Message received' }));
     },
     close(ws: ServerWebSocket<unknown>) {
-      console.log('WebSocket client disconnected');
+      console.log('WebSocket client disconnected', {
+        remoteAddress: ws.remoteAddress,
+        readyState: ws.readyState
+      });
       wsClients.forEach(client => {
         if (client.socket === ws) {
           wsClients.delete(client);
