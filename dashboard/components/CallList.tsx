@@ -66,15 +66,17 @@ export function CallList() {
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the API proxy endpoint
     const wsUrl = `${protocol}//${window.location.host}/api/ws`;
-    console.log('Attempting WebSocket connection to:', wsUrl);
+    console.log('Setting up WebSocket connection to:', wsUrl);
+    console.log('Current protocol:', protocol);
+    console.log('Current host:', window.location.host);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected successfully to:', wsUrl);
+      console.log('WebSocket connection established');
+      setError(null);
       // Clear any existing reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -94,23 +96,16 @@ export function CallList() {
             // Only add if not already in the list
             if (!prev.find(call => call.id === data.call.id)) {
               console.log('Adding new call to list');
-              const newCalls = [data.call, ...prev];
-              console.log('New calls length:', newCalls.length);
-              return newCalls;
+              return [data.call, ...prev];
             }
             console.log('Call already in list, skipping');
             return prev;
           });
-          setPagination(prev => {
-            console.log('Updating pagination. Current:', prev);
-            const newPagination = {
-              ...prev,
-              total: prev.total + 1,
-              pages: Math.ceil((prev.total + 1) / prev.limit)
-            };
-            console.log('New pagination:', newPagination);
-            return newPagination;
-          });
+          setPagination(prev => ({
+            ...prev,
+            total: prev.total + 1,
+            pages: Math.ceil((prev.total + 1) / prev.limit)
+          }));
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
@@ -119,7 +114,13 @@ export function CallList() {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
-      console.error('WebSocket readyState:', ws.readyState);
+      console.error('WebSocket state:', {
+        readyState: ws.readyState,
+        url: ws.url,
+        protocol: ws.protocol,
+        extensions: ws.extensions,
+        bufferedAmount: ws.bufferedAmount
+      });
       setError('Failed to connect to WebSocket server');
     };
 
@@ -127,7 +128,8 @@ export function CallList() {
       console.log('WebSocket connection closed:', {
         code: event.code,
         reason: event.reason,
-        wasClean: event.wasClean
+        wasClean: event.wasClean,
+        readyState: ws.readyState
       });
       // Attempt to reconnect after 5 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
