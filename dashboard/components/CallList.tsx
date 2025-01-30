@@ -41,7 +41,7 @@ export function CallList() {
     limit: 10
   });
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const fetchCalls = useCallback(async (page: number, search: string) => {
     try {
@@ -79,6 +79,7 @@ export function CallList() {
       // Clear any existing reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
       }
     };
 
@@ -115,6 +116,7 @@ export function CallList() {
       console.log('WebSocket connection closed, attempting to reconnect...');
       // Attempt to reconnect after 5 seconds
       reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = undefined;
         setupWebSocket();
       }, 5000);
     };
@@ -125,6 +127,7 @@ export function CallList() {
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
       }
     };
   }, []); // Empty dependency array since we don't use any external values
