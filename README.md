@@ -1,12 +1,12 @@
-# Twilio Call Recorder
+# Voiceflow Call Recorder and Audio PII Redaction
 
-A real-time call recording and transcription system built with Twilio, Next.js, and Bun. This application automatically records incoming calls, transcribes them, and provides a dashboard to manage and review call recordings and transcripts.
+A real-time call recording and transcription system built with Voiceflow Twilio voice integration, Next.js, and Bun. This application automatically records incoming calls, transcribes them, and provides a dashboard to manage and review call recordings and transcripts.
 
 ## Features
 
 - 🎥 Automatic call recording for incoming calls
 - 🔊 Dual-channel recording support
-- 📝 Real-time transcription with PII redaction
+- 📝 Real-time transcription with PII redaction (Twilio Voice Intelligence)
 - 💻 Web-based dashboard for call management
 - 🔄 Real-time updates via WebSocket
 
@@ -42,7 +42,7 @@ bun install
    ```
    TWILIO_ACCOUNT_SID=your_account_sid
    TWILIO_AUTH_TOKEN=your_auth_token
-   TWILIO_SERVICE_SID=your_service_sid
+   TWILIO_SERVICE_SID=your_voice_intelligence_service_sid
    PUBLIC_URL=your_public_url
    BUN_SERVER=http://localhost:3902
    NEXT_PUBLIC_BUN_SERVER=http://localhost:3902
