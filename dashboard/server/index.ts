@@ -231,11 +231,12 @@ const server = serve({
         console.log('📞 New call:', {
           from: params.get('From'),
           to: params.get('To'),
+          direction: params.get('Direction'),
           callSid: callSid?.slice(-4) // Show only last 4 chars
         });
 
         // Start polling for call status if it's an outbound call
-        if (callSid && params.get('Direction') === 'outbound-api') {
+        if (callSid && (params.get('Direction') === 'outbound-api' || params.get('Direction') === 'outbound')) {
           pollCallStatus(callSid);
         }
 
