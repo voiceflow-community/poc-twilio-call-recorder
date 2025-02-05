@@ -7,7 +7,6 @@ import type {
   WebSocketClient
 } from "./types";
 import { saveCalls, getCalls, deleteCall } from "./db";
-// https://runtime-api.voiceflow.com/v1/twilio/webhooks/6762e9e1a01ce51cb9b4fb3a/answer?authorization=VF.DM.6798cc7bb236da859df152f0.BrZL0yPLYda7nCJl
 
 const TWILIO_ACCOUNT_SID = Bun.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = Bun.env.TWILIO_AUTH_TOKEN;
@@ -235,8 +234,8 @@ const server = serve({
           callSid: callSid?.slice(-4) // Show only last 4 chars
         });
 
-        // Start polling for call status if it's an inbound call
-        if (callSid && params.get('Direction') === 'inbound') {
+        // Start polling for call status if it's an outbound call
+        if (callSid && params.get('Direction') === 'outbound-api') {
           pollCallStatus(callSid);
         }
 
