@@ -236,7 +236,7 @@ const server = serve({
         });
 
         // Start polling for call status if it's an outbound call
-        if (callSid && (params.get('Direction') === 'outbound-api' || params.get('Direction') === 'outbound')) {
+        if (callSid && params.get('Direction') === 'inbound') {
           pollCallStatus(callSid);
         }
 
