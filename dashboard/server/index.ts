@@ -10,8 +10,9 @@ import { saveCalls, getCalls, deleteCall } from "./db";
 
 const TWILIO_ACCOUNT_SID = Bun.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = Bun.env.TWILIO_AUTH_TOKEN;
+const TWILIO_SERVICE_SID = Bun.env.TWILIO_SERVICE_SID;
 
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_SERVICE_SID) {
   console.error("Missing Twilio credentials");
   process.exit(1);
 }
@@ -297,7 +298,7 @@ const server = serve({
               'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: new URLSearchParams({
-              'ServiceSid': 'GA373495a1cb7c727038e7261fedfbbe0e',
+              'ServiceSid': TWILIO_SERVICE_SID,
               'Channel': JSON.stringify({
                 media_properties: {
                   source_sid: recordingSid
