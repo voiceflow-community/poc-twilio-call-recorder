@@ -1,45 +1,45 @@
-import { type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const BUN_SERVER = process.env.BUN_SERVER || 'http://localhost:3002';
+// Keep track of deleted IDs to prevent duplicate deletes
+const deletedIds = new Set<string>();
 
-export const dynamic = 'force-dynamic';
-
-export async function DELETE(request: NextRequest, context: any) {
-  const { id } = context.params;
+export async function DELETE(
+  request: Request,
+  context: { params: { id: string } }
+) {
   try {
-    // Try to delete from Twilio first, but don't fail if it errors
-    try {
-      const twilioResponse = await fetch(`https://intelligence.twilio.com/v2/Transcripts/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Basic ${btoa(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`)}`
-        }
-      });
+    // Get ID from params and ensure it's awaited
+    const { id } = await Promise.resolve(context.params);
 
-      if (!twilioResponse.ok) {
-        console.warn(`Warning: Failed to delete from Twilio (status: ${twilioResponse.status}). Continuing with local deletion.`);
-      }
-    } catch (error) {
-      console.warn('Warning: Failed to contact Twilio API:', error);
-      // Continue with local deletion even if Twilio fails
+    // Check if this ID was already deleted
+    if (deletedIds.has(id)) {
+      console.log('🚫 Skipping duplicate delete request for:', id);
+      return new NextResponse(null, { status: 204 });
     }
 
-    // Delete from our database
-    const response = await fetch(`${BUN_SERVER}/calls/${id}`, {
+    console.log('🗑️ Starting deletion process for call:', id);
+
+    // Add ID to deleted set
+    deletedIds.add(id);
+
+    // Make DELETE request to the server
+    const response = await fetch(`http://localhost:3902/api/calls/${id}`, {
       method: 'DELETE',
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete from database (status: ${response.status})`);
+      // Remove ID from deleted set if delete failed
+      deletedIds.delete(id);
+      throw new Error(`Failed to delete call (status: ${response.status})`);
     }
 
-    return new Response(null, { status: 204 });
+    // Keep the ID in the deleted set to prevent future duplicate deletes
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Error deleting call:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return Response.json(
-      { error: 'Failed to delete call', details: errorMessage },
-      { status: 500 }
+    console.error('❌ Error deleting call:', error);
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to delete call' }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
     );
   }
 }

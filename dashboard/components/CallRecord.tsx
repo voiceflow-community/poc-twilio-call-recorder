@@ -11,6 +11,7 @@ interface CallRecordProps {
     duration: string;
     recordingUrl: string;
     piiUrl: string;
+    recordingType: 'regular' | 'redacted';
     createdAt: string;
     transcript: {
       speaker: 'customer' | 'assistant';
@@ -22,6 +23,7 @@ interface CallRecordProps {
 export function CallRecord({ call, onDelete }: CallRecordProps & { onDelete: (id: string) => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [audioError, setAudioError] = useState(false);
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this call? This action cannot be undone.')) {
@@ -30,7 +32,14 @@ export function CallRecord({ call, onDelete }: CallRecordProps & { onDelete: (id
 
     setIsDeleting(true);
     try {
-      await onDelete(call.id);
+      const response = await fetch(`/api/calls/${call.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        onDelete(call.id);
+      } else {
+        console.error('Failed to delete the call');
+      }
+    } catch (error) {
+      console.error('An error occurred:', error);
     } finally {
       setIsDeleting(false);
     }
@@ -84,24 +93,40 @@ export function CallRecord({ call, onDelete }: CallRecordProps & { onDelete: (id
           <p className="text-sm text-gray-500 mt-1">
             {formatDateTime(call.createdAt)}
           </p>
+          <div className="text-xs mt-1">
+            <span className={`px-2 py-1 rounded ${
+              call.recordingType === 'redacted' ? 'bg-purple-900 text-purple-100' : 'bg-blue-900 text-blue-100'
+            }`}>
+              {call.recordingType === 'redacted' ? '🔒 PII Redacted' : '🎵 Standard Recording'}
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <audio controls src={call.piiUrl} className="h-8 w-[300px] lg:w-[250px]" />
+          {!audioError && (
+            <audio
+              controls
+              src={call.piiUrl || call.recordingUrl}
+              className="h-8 w-[300px] lg:w-[250px]"
+              onError={() => setAudioError(true)}
+            />
+          )}
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => window.open(call.piiUrl, '_blank')}
+              onClick={() => window.open(call.piiUrl || call.recordingUrl, '_blank')}
               className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              title="Download PII"
+              title="Download Recording"
             >
               <ArrowDownTrayIcon className="w-5 h-5" />
             </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 bg-gray-700 text-gray-200 rounded hover:bg-gray-600"
-              title={isExpanded ? 'Hide Transcript' : 'Show Transcript'}
-            >
-              <DocumentTextIcon className="w-5 h-5" />
-            </button>
+            {call.transcript.length > 0 && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-2 bg-gray-700 text-gray-200 rounded hover:bg-gray-600"
+                title={isExpanded ? 'Hide Transcript' : 'Show Transcript'}
+              >
+                <DocumentTextIcon className="w-5 h-5" />
+              </button>
+            )}
             <button
               onClick={handleDelete}
               className="p-2 bg-red-600 text-white rounded hover:bg-red-700"

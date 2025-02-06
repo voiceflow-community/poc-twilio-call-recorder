@@ -1,14 +1,21 @@
-FROM node:20-alpine
+FROM node:20.11.0-alpine
 
 WORKDIR /app
 
+# Install dependencies
 COPY package*.json ./
-RUN npm install
+RUN apk add --no-cache python3 make g++ && \
+    npm install && \
+    apk del python3 make g++
 
+# Copy source code
 COPY . .
 
+# Build both server and Next.js application
 RUN npm run build
 
-#EXPOSE 3000
+# Expose ports for Next.js and WebSocket server
+EXPOSE 3000 3902
 
-CMD ["npm", "start"]
+# Start both Next.js and server in production mode
+CMD ["npm", "run", "start"]

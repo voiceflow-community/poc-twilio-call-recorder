@@ -15,6 +15,8 @@ interface Call {
   duration: string;
   recordingUrl: string;
   piiUrl: string;
+  recordingType: 'regular' | 'redacted';
+  transcript_sid: string;
   createdAt: string;
   transcript: {
     speaker: 'customer' | 'assistant';
@@ -42,37 +44,47 @@ export function CallList() {
   });
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reconnectAttempts = useRef<number>(0);
+  const limit = 10; // Move limit to component level constant
 
-  const fetchCalls = useCallback(async (page: number, search: string) => {
+  const fetchCalls = useCallback(async (page: number, searchQuery: string) => {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: pagination.limit.toString(),
-        ...(search && { search })
+        limit: limit.toString(),
+        ...(searchQuery && { search: searchQuery })
       });
 
-      const response = await fetch(`/api/calls?${params}`);
+      const response = await fetch(`http://localhost:3902/api/calls?${params}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Surrogate-Control': 'no-store'
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch calls');
       const data = await response.json();
-      setCalls(data.calls);
-      setPagination(data.pagination);
+      setCalls(data.data || []);
+      setPagination(prevPagination => ({
+        ...prevPagination,
+        total: data.pagination.total,
+        pages: data.pagination.totalPages,
+        currentPage: data.pagination.page,
+        limit: data.pagination.limit
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch calls');
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit]);
+  }, []);
 
   // Set up WebSocket connection with reconnection logic
   const setupWebSocket = useCallback(() => {
-    // Use the Next.js API route for WebSocket connection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/api/ws`
-
-    console.log('Setting up WebSocket connection to:', wsUrl, {
-      protocol,
-      host: window.location.host
-    });
+    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws`;
+    console.log('Setting up WebSocket connection to:', wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -96,19 +108,25 @@ export function CallList() {
             console.log('Processing new call:', data.call);
             // Add the new call to the beginning of the list and update pagination
             setCalls(prev => {
-              console.log('Current calls:', prev.length);
               // Only add if not already in the list
               if (!prev.find(call => call.id === data.call.id)) {
-                console.log('Adding new call to list');
                 return [data.call, ...prev];
               }
-              console.log('Call already in list, skipping');
               return prev;
             });
             setPagination(prev => ({
               ...prev,
               total: prev.total + 1,
               pages: Math.ceil((prev.total + 1) / prev.limit)
+            }));
+          } else if (data.type === 'delete_call') {
+            console.log('Processing call deletion:', data.id);
+            // Remove the deleted call from the list
+            setCalls(prev => prev.filter(call => call.id !== data.id));
+            setPagination(prev => ({
+              ...prev,
+              total: Math.max(0, prev.total - 1),
+              pages: Math.max(1, Math.ceil((prev.total - 1) / prev.limit))
             }));
           }
         } catch (error) {
@@ -118,14 +136,6 @@ export function CallList() {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        console.error('WebSocket state:', {
-          readyState: ws.readyState,
-          url: ws.url,
-          protocol: ws.protocol,
-          extensions: ws.extensions,
-          bufferedAmount: ws.bufferedAmount,
-          binaryType: ws.binaryType
-        });
         setError('Failed to connect to WebSocket server');
       };
 
@@ -133,24 +143,28 @@ export function CallList() {
         console.log('WebSocket connection closed:', {
           code: event.code,
           reason: event.reason,
-          wasClean: event.wasClean,
-          readyState: ws.readyState
+          wasClean: event.wasClean
         });
 
         // Don't attempt to reconnect if the component is unmounting
         if (!wsRef.current) return;
 
-        // Attempt to reconnect after 5 seconds
+        // Attempt to reconnect after a delay that increases with each attempt
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Max 30 seconds
+        console.log(`Attempting to reconnect in ${delay}ms...`);
+
         reconnectTimeoutRef.current = setTimeout(() => {
           console.log('Attempting to reconnect WebSocket...');
           reconnectTimeoutRef.current = undefined;
+          reconnectAttempts.current += 1;
           setupWebSocket();
-        }, 5000);
+        }, delay);
       };
 
       return () => {
         console.log('Cleaning up WebSocket connection');
         wsRef.current = null; // Mark as intentionally closed
+        reconnectAttempts.current = 0; // Reset reconnect attempts on cleanup
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close();
         }
@@ -174,13 +188,23 @@ export function CallList() {
     };
   }, [setupWebSocket]);
 
-  // Fetch calls when page or search changes
+  // Initialize data on component mount and when search changes
   useEffect(() => {
-    fetchCalls(pagination.currentPage, search);
-  }, [pagination.currentPage, search, fetchCalls]);
+    // Always fetch first page when search changes
+    const page = search ? 1 : pagination.currentPage;
+    fetchCalls(page, search);
+  }, [search, fetchCalls]);
+
+  // Handle page changes separately
+  useEffect(() => {
+    if (!loading) { // Only fetch if not in initial loading state
+      fetchCalls(pagination.currentPage, search);
+    }
+  }, [pagination.currentPage, fetchCalls, search, loading]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
+    // Reset to first page when searching
     setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
@@ -190,23 +214,27 @@ export function CallList() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/calls/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.details || 'Failed to delete call');
-      }
-
-      // Remove the deleted call from the state
+      // Optimistically remove the call from the UI
       setCalls(prev => prev.filter(call => call.id !== id));
       setPagination(prev => ({
         ...prev,
         total: prev.total - 1,
         pages: Math.ceil((prev.total - 1) / prev.limit)
       }));
+
+      const response = await fetch(`http://localhost:3902/api/calls/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        // If delete fails, add the call back
+        const data = await response.json();
+        throw new Error(data.details || 'Failed to delete call');
+      }
     } catch (err) {
+      // On error, refetch the calls to restore state
+      console.error('Error deleting call:', err);
+      fetchCalls(pagination.currentPage, search);
       setError(err instanceof Error ? err.message : 'Failed to delete call');
       // Clear error after 5 seconds
       setTimeout(() => setError(null), 5000);

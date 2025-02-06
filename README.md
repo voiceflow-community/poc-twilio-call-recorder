@@ -1,19 +1,21 @@
 # Voiceflow Call Recorder and Audio PII Redaction
 
-A real-time call recording and transcription system built with Voiceflow Twilio voice integration, Next.js, and Bun. This application automatically records incoming calls, transcribes them, and provides a dashboard to manage and review call recordings and transcripts.
+A real-time call recording and transcription system built with Voiceflow Twilio voice integration and Next.js. This application automatically records incoming calls, transcribes them, and provides a dashboard to manage and review call recordings and transcripts.
 
 ## Features
 
 - 🎥 Automatic call recording for incoming calls
 - 🔊 Dual-channel recording support
-- 📝 Real-time transcription with PII redaction (Twilio Voice Intelligence)
+- 📝 Optional real-time transcription with PII redaction (Twilio Voice Intelligence)
+  - Enable by setting `PII_REDACTION_ENABLED=true`
+  - When enabled: Uses Twilio Voice Intelligence for transcription and PII redaction
+  - When disabled: Uses standard Twilio call recording without transcription
 - 💻 Web-based dashboard for call management
 - 🔄 Real-time updates via WebSocket
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) runtime installed
-- [Node.js](https://nodejs.org/) (v18 or higher)
+- [Node.js](https://nodejs.org/) (v20)
 - A Twilio account with:
   - Account SID
   - Auth Token
@@ -30,53 +32,54 @@ cd poc-twilio-call-recorder
 2. Install dependencies:
 ```bash
 cd dashboard
-bun install
+npm install
 ```
 
 3. Configure environment variables:
-   - Copy the template file:
-   ```bash
-   cp .env.local.template .env.local
-   ```
-   - Update `.env.local` with your credentials:
-   ```
-   TWILIO_ACCOUNT_SID=your_account_sid
-   TWILIO_AUTH_TOKEN=your_auth_token
-   TWILIO_SERVICE_SID=your_voice_intelligence_service_sid
-   PUBLIC_URL=your_public_url
-   BUN_SERVER=http://localhost:3902
-   NEXT_PUBLIC_BUN_SERVER=http://localhost:3902
-   DASHBOARD_PORT=3901
-   BUN_PORT=3902
-   ```
+   - Copy `dashboard/.env.template` to `dashboard/.env`
+   - Fill in your Twilio credentials:
+     - `TWILIO_ACCOUNT_SID`: Your Twilio Account SID
+     - `TWILIO_AUTH_TOKEN`: Your Twilio Auth Token
+     - `TWILIO_SERVICE_SID`: Your Twilio Voice Intelligence Service SID
+     - `PII_REDACTION_ENABLED`: Set to 'true' to enable PII redaction and transcription
+   - Update the `PUBLIC_URL` to your public-facing URL (e.g., ngrok URL)
+   - Set `NEXT_PUBLIC_WS_URL` for WebSocket connections (default: ws://localhost:3902)
+   - Configure port if needed:
+     - `PORT`: Server port (default: 3902)
 
 ## Running the Application
 
-1. Start the Bun server:
-```bash
-cd dashboard
-bun run server/index.ts
-```
+### Development Mode
 
-2. In a new terminal, start the Next.js dashboard:
+Start both the Next.js frontend and API server in development mode:
 ```bash
 cd dashboard
-bun run dev
+npm run dev
 ```
 
 The application will be available at:
-- Dashboard: http://localhost:3901
-- Bun Server: http://localhost:3902
+- Dashboard: http://localhost:3000
+- API/WebSocket Server: http://localhost:3902
+
+### Production Mode
+
+Build and start the application in production mode:
+```bash
+cd dashboard
+npm run build
+npm run start
+```
 
 ## Running with Docker Compose
 
-As an alternative to running the services directly, you can use Docker Compose:
+1. Make sure you have Docker and Docker Compose installed
 
-1. Make sure you have Docker and Docker Compose installed on your system
+2. Configure environment variables:
+   - Copy `dashboard/.env.template` to `dashboard/.env`
+   - Configure the variables as described in the Setup section
+   - The docker-compose.yml is configured to use `dashboard/.env` automatically
 
-2. Configure environment variables as described in the Setup section
-
-3. Start the services:
+3. Start the services from the project root:
 ```bash
 docker compose up -d
 ```
@@ -91,47 +94,64 @@ docker compose logs -f
 docker compose down
 ```
 
-The application will be available at the same ports:
-- Dashboard: http://localhost:3901
-- Bun Server: http://localhost:3902
+The application will be available at:
+- Dashboard: http://localhost:3000
+- API/WebSocket Server: http://localhost:3902
 
-Note: The Docker setup includes a persistent volume for the database data.
+Note: The Docker setup includes hot-reloading for development and proper production configuration.
 
 ## Twilio Configuration
 
 1. Set up your Twilio phone number
 2. Configure the webhook URL in your Twilio console:
    - Voice Configuration -> A call comes in
-   - Set to: `[YOUR_PUBLIC_URL]/v1/twilio/webhooks/voice`
+   - Replace `https://runtime-api.voiceflow.com` with `[YOUR_PUBLIC_URL]`
+   - Add the piiRedaction parameter according to your needs:
+     - For PII redaction: `[YOUR_PUBLIC_URL]/v1/twilio/webhooks/projectID/answer?authorization=VF.DM.XXX&piiRedaction=true`
+     - Without PII redaction: `[YOUR_PUBLIC_URL]/v1/twilio/webhooks/projectID/answer?authorization=VF.DM.XXX&piiRedaction=false`
+     To use the piiRedaction parameter, you need to set the `TWILIO_SERVICE_SID` environment variable to your Voice Intelligence Service SID from Twilio.
    - Method: GET
 
 ## Architecture
 
 The application consists of two main components:
 
-1. **Bun Server** (Port 3902)
+1. **Express Server** (Port 3902)
    - Handles Twilio webhooks
    - Manages call recording
    - Processes transcriptions
    - WebSocket server for real-time updates
+   - REST API endpoints
 
-2. **Next.js Dashboard** (Port 3901)
+2. **Next.js Dashboard** (Port 3000)
    - User interface for call management
-   - Real-time call updates
+   - Real-time call updates via WebSocket
    - Search and filtering capabilities
    - Call record deletion
 
 ## Development
 
 The project uses:
-- Bun as the runtime and package manager
+- Node.js as the runtime
 - TypeScript for type safety
 - Next.js for the frontend
+- Express for the backend API
 - WebSocket for real-time communication
+- SQLite for data storage
+
+## Available Scripts
+
+- `npm run dev`: Start both frontend and backend in development mode
+- `npm run build`: Build both frontend and backend for production
+- `npm run start`: Run the application in production mode
+- `npm run dev:next`: Run only the Next.js frontend in development
+- `npm run dev:server`: Run only the API server in development
+- `npm run build:next`: Build only the Next.js frontend
+- `npm run build:server`: Build only the API server
 
 ## Security Considerations
 
-- Never commit `.env.local` to version control
+- Never commit `.env` to version control
 - Keep your Twilio credentials secure
 - Use HTTPS in production
 - Implement proper authentication for the dashboard in production

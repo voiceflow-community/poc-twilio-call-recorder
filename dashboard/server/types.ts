@@ -1,5 +1,3 @@
-import { ServerWebSocket } from "bun";
-
 export interface TwilioTranscript {
   sid: string;
   status: string;
@@ -14,8 +12,10 @@ export interface TwilioMedia {
 }
 
 export interface TranscriptSentence {
-  media_channel: number;
-  transcript: string;
+  media_channel?: number;
+  transcript?: string;
+  speaker?: string;
+  text?: string;
 }
 
 export interface CallRecord {
@@ -27,14 +27,11 @@ export interface CallRecord {
   duration: string;
   recordingUrl: string;
   piiUrl: string;
+  recordingType: 'regular' | 'redacted';
+  transcript_sid: string;
   createdAt: string;
   transcript: {
-    speaker: 'customer' | 'assistant';
+    speaker: string;
     text: string;
   }[];
-}
-
-export interface WebSocketClient {
-  socket: ServerWebSocket<unknown>;
-  timestamp: number;
 }

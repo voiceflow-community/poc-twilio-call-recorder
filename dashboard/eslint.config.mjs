@@ -7,11 +7,22 @@ const __dirname = dirname(__filename)
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
+  recommendedConfig: {
+    env: {
+      es2022: true,
+      node: true,
+    },
+  },
 })
 
+/** @type {import('eslint').Linter.FlatConfig[]} */
 const eslintConfig = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
+    ignores: ['**/node_modules/**', '.next/**', 'dist/**'],
+  },
+  ...compat.extends('next/core-web-vitals'),
+  {
+    files: ['**/*.ts', '**/*.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },

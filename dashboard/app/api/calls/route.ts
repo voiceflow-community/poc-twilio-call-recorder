@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server';
 
-const BUN_SERVER = process.env.BUN_SERVER || 'http://localhost:3002';
+const BUN_SERVER = process.env.BUN_SERVER || 'http://localhost:3902';
+
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 export async function GET() {
   try {
-    const response = await fetch(`${BUN_SERVER}/calls`);
+    const response = await fetch(`${BUN_SERVER}/calls`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache'
+      }
+    });
 
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
@@ -16,7 +26,15 @@ export async function GET() {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      }
+    });
   } catch (error) {
     console.error('Error fetching calls:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
