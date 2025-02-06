@@ -4,7 +4,7 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"  # Next.js
+      - "3901:3901"  # Next.js
       - "3902:3902"  # WebSocket/API Server
     env_file:
       - .env  # Root level .env for docker-compose
@@ -12,7 +12,9 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3902
-      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+      - NEXT_PUBLIC_WS_URL=ws://localhost:3902
+      - NEXT_PUBLIC_API_URL=http://localhost:3902  # Add this for API calls
+      - INTERNAL_API_URL=http://localhost:3902     # Add this for internal communication
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_SERVICE_SID=${TWILIO_SERVICE_SID}

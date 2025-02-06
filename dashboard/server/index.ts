@@ -9,6 +9,7 @@ import type {
   CallRecord,
 } from "./types.js";
 import { saveCalls, getCalls, deleteCall, initialize as initializeDb } from "./db.js";
+import cors from 'cors';
 
 // Load environment variables
 dotenv.config();
@@ -221,15 +222,7 @@ async function initializeApp() {
   // Enable CORS and JSON parsing
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-    res.header('Access-Control-Allow-Headers', '*');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
-    next();
-  });
+  app.use(cors());
 
   // Create HTTP server
   const PORT = parseInt(process.env.PORT || "3902");
@@ -238,8 +231,8 @@ async function initializeApp() {
   // Handle server errors
   server.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use. Trying port ${PORT + 1}`);
-      server.listen(PORT + 1);
+      console.error(`Port ${PORT} is already in use. Please check if another instance is running.`);
+      process.exit(1);
     } else {
       console.error('Server error:', error);
       process.exit(1);
@@ -511,6 +504,15 @@ async function initializeApp() {
       console.error('Error handling voice webhook:', error);
       res.status(500).send('Internal Server Error');
     }
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Closing server...');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
   });
 
   server.listen(PORT, () => {

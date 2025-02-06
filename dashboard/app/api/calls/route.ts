@@ -1,45 +1,64 @@
 import { NextResponse } from 'next/server';
 
-const BUN_SERVER = process.env.BUN_SERVER || 'http://localhost:3902';
+const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3902';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const response = await fetch(`${BUN_SERVER}/calls`, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-        'Pragma': 'no-cache'
-      }
-    });
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '10';
+
+    const response = await fetch(`${API_URL}/calls?page=${page}&limit=${limit}`);
 
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
     }
 
     const contentType = response.headers.get('content-type');
-    if (!contentType?.includes('application/json')) {
-      throw new Error(`Expected JSON but got ${contentType}`);
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid response format');
     }
 
     const data = await response.json();
-
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'Surrogate-Control': 'no-store'
-      }
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching calls:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to fetch calls', details: errorMessage },
+      { error: 'Failed to fetch calls' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Call ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const response = await fetch(`${API_URL}/calls/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting call:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete call' },
       { status: 500 }
     );
   }

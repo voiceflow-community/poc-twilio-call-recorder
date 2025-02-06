@@ -82,7 +82,7 @@ npm run start
 
 3. Start the services from the project root:
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
 4. View logs (optional):
