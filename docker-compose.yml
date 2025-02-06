@@ -7,7 +7,8 @@ services:
       - "3000:3000"  # Next.js
       - "3902:3902"  # WebSocket/API Server
     env_file:
-      - ./dashboard/.env
+      - .env  # Root level .env for docker-compose
+      - ./dashboard/.env  # Application specific .env
     environment:
       - NODE_ENV=development
       - PORT=3902

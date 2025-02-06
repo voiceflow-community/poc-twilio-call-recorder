@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN apk add --no-cache python3 make g++ && \
     npm install && \
+    npm install -D @types/express @types/node @types/ws && \
     apk del python3 make g++
 
 # Copy source code

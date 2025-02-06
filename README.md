@@ -75,9 +75,10 @@ npm run start
 1. Make sure you have Docker and Docker Compose installed
 
 2. Configure environment variables:
-   - Copy `dashboard/.env.template` to `dashboard/.env`
-   - Configure the variables as described in the Setup section
-   - The docker-compose.yml is configured to use `dashboard/.env` automatically
+   - Copy `dashboard/.env.template` to `dashboard/.env` for application configuration
+   - Copy `dashboard/.env.template` to `.env` in the project root for Docker Compose
+   - Configure both files with the same values as described in the Setup section
+   - The docker-compose.yml will use both files automatically
 
 3. Start the services from the project root:
 ```bash
