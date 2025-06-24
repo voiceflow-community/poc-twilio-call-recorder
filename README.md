@@ -143,3 +143,5 @@ ISC
 ## Author
 
 Nicolas Arcay Bermejo | Voiceflow
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=voiceflow-community_poc-twilio-call-recorder&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=voiceflow-community_poc-twilio-call-recorder)
