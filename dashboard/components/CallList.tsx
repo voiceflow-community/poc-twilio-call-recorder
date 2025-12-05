@@ -188,7 +188,18 @@ export function CallList() {
     setPagination(prev => ({ ...prev, currentPage: page }));
   };
 
+  // Restrict id to UUID (adjust the regex if a different format is used)
+  function isValidUUID(id: string): boolean {
+    // UUID v4 regex: 8-4-4-4-12 hex digits, dashes required
+    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+  }
+
   const handleDelete = async (id: string) => {
+    if (!isValidUUID(id)) {
+      setError('Invalid call identifier');
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
     try {
       const response = await fetch(`/api/calls/${id}`, {
         method: 'DELETE',
