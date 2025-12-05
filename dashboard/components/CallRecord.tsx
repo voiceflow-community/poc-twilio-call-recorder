@@ -3,7 +3,20 @@
 import { useState } from 'react';
 import { ArrowDownTrayIcon, DocumentTextIcon, TrashIcon } from '@heroicons/react/24/outline';
 
-interface CallRecordProps {
+
+// Ensures URLs are only used if they're absolute, and http/https
+function getSafeAudioUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href;
+    }
+  } catch {
+    // If parsing fails (invalid URL), don't use
+    return undefined;
+  }
+  return undefined;
+}
   call: {
     id: string;
     from: string;
@@ -86,15 +99,23 @@ export function CallRecord({ call, onDelete }: CallRecordProps & { onDelete: (id
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <audio controls src={call.piiUrl} className="h-8 w-[300px] lg:w-[250px]" />
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => window.open(call.piiUrl, '_blank')}
-              className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              title="Download PII"
-            >
-              <ArrowDownTrayIcon className="w-5 h-5" />
-            </button>
+          {/* Only render audio/download if the URL is safe */}
+          {getSafeAudioUrl(call.piiUrl) ? (
+            <>
+              <audio controls src={getSafeAudioUrl(call.piiUrl)} className="h-8 w-[300px] lg:w-[250px]" />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => window.open(getSafeAudioUrl(call.piiUrl), '_blank')}
+                  className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  title="Download PII"
+                >
+                  <ArrowDownTrayIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-red-500">Invalid or unsafe audio URL</div>
+          )}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-2 bg-gray-700 text-gray-200 rounded hover:bg-gray-600"
